@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zikir">
+<meta name="theme-color" content="#0a0a0f">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%230a0a0f'/%3E%3Ccircle cx='96' cy='96' r='70' fill='none' stroke='%23c9a84c' stroke-width='6'/%3E%3Ctext x='96' y='118' font-family='serif' font-size='72' text-anchor='middle' fill='%23f0d07a'%3E%E2%98%BD%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Penghitung Zikir</title>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --card: #1a1a28;
+    --gold: #c9a84c;
+    --gold-light: #f0d07a;
+    --gold-dim: #7a6030;
+    --teal: #2dd4bf;
+    --teal-dim: #0f4a44;
+    --text: #e8e0cc;
+    --text-dim: #7a7060;
+    --border: rgba(201,168,76,0.15);
+    --glow: rgba(201,168,76,0.25);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Tajawal', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Ornamental background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 0%, rgba(201,168,76,0.07) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 80% 80%, rgba(45,212,191,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 60% at 20% 60%, rgba(201,168,76,0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Geometric pattern */
+  .bg-pattern {
+    position: fixed;
+    inset: 0;
+    opacity: 0.04;
+    background-image:
+      repeating-linear-gradient(45deg, var(--gold) 0, var(--gold) 1px, transparent 0, transparent 50%),
+      repeating-linear-gradient(-45deg, var(--gold) 0, var(--gold) 1px, transparent 0, transparent 50%);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    width: min(420px, 95vw);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    padding: 20px 0;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+  }
+
+  .arabic-title {
+    font-family: 'Amiri', serif;
+    font-size: clamp(28px, 8vw, 42px);
+    color: var(--gold-light);
+    letter-spacing: 2px;
+    line-height: 1.2;
+    text-shadow: 0 0 40px rgba(240,208,122,0.4);
+    animation: shimmer 3s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0%, 100% { text-shadow: 0 0 30px rgba(240,208,122,0.3); }
+    50% { text-shadow: 0 0 60px rgba(240,208,122,0.6), 0 0 100px rgba(240,208,122,0.2); }
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 300;
+  }
+
+  /* Main counter card */
+  .counter-card {
+    width: 100%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 36px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(201,168,76,0.1);
+  }
+
+  .counter-card::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: 20%; right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+
+  /* Progress ring */
+  .ring-wrapper {
+    position: relative;
+    width: 200px;
+    height: 200px;
+  }
+
+  .progress-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  .ring-bg {
+    fill: none;
+    stroke: rgba(201,168,76,0.08);
+    stroke-width: 6;
+  }
+
+  .ring-fill {
+    fill: none;
+    stroke: url(#ringGrad);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-dasharray: 565.48;
+    stroke-dashoffset: 565.48;
+    transition: stroke-dashoffset 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 0 6px rgba(201,168,76,0.5));
+  }
+
+  .ring-center {
+    position: absolute;
+    inset: 16px;
+    background: radial-gradient(circle at center, #1e1e2e, var(--card));
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: 1px solid rgba(201,168,76,0.08);
+  }
+
+  .count-number {
+    font-family: 'Amiri', serif;
+    font-size: clamp(52px, 14vw, 72px);
+    font-weight: 700;
+    color: var(--gold-light);
+    line-height: 1;
+    letter-spacing: -2px;
+    transition: transform 0.15s ease;
+  }
+
+  .count-number.bump {
+    animation: bump 0.3s ease;
+  }
+
+  @keyframes bump {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.18); color: #fff; }
+    100% { transform: scale(1); }
+  }
+
+  .count-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* Target indicator */
+  .target-info {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .target-info span.val {
+    color: var(--gold);
+    font-weight: 500;
+  }
+
+  /* Tap button */
+  .tap-btn {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold-dim), #3a2a10);
+    border: 2px solid var(--gold-dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 0 rgba(201,168,76,0);
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+  }
+
+  .tap-btn:hover { border-color: var(--gold); box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 20px rgba(201,168,76,0.3); }
+
+  .tap-btn:active {
+    transform: scale(0.93);
+    background: linear-gradient(135deg, var(--gold), #7a5010);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4), 0 0 30px rgba(201,168,76,0.5);
+  }
+
+  .tap-btn svg {
+    width: 32px;
+    height: 32px;
+    fill: var(--gold-light);
+    opacity: 0.9;
+  }
+
+  /* Tap ripple effect */
+  @keyframes ripple {
+    0% { transform: scale(0.8); opacity: 0.6; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+
+  .tap-btn.ripple::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(201,168,76,0.3);
+    animation: ripple 0.5s ease-out forwards;
+    pointer-events: none;
+  }
+
+  /* Voice button */
+  .voice-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(45,212,191,0.06);
+    border: 1px solid rgba(45,212,191,0.2);
+    border-radius: 100px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-family: 'Tajawal', sans-serif;
+    font-size: 13px;
+    color: var(--teal);
+    transition: all 0.2s ease;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .voice-btn:hover { background: rgba(45,212,191,0.12); border-color: rgba(45,212,191,0.4); }
+  .voice-btn.listening { background: rgba(45,212,191,0.15); border-color: var(--teal); animation: pulse-border 1s ease-in-out infinite; }
+
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(45,212,191,0.3); }
+    50% { box-shadow: 0 0 0 6px rgba(45,212,191,0); }
+  }
+
+  .voice-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--teal);
+    flex-shrink: 0;
+  }
+
+  .voice-btn.listening .voice-dot { animation: blink 0.6s ease-in-out infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+  /* Status / transcript */
+  .status-bar {
+    width: 100%;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-size: 12px;
+    color: var(--text-dim);
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+  }
+
+  .status-bar.detected {
+    background: rgba(201,168,76,0.06);
+    border-color: rgba(201,168,76,0.2);
+    color: var(--gold-light);
+  }
+
+  .status-bar.error {
+    background: rgba(239,68,68,0.06);
+    border-color: rgba(239,68,68,0.2);
+    color: #fca5a5;
+  }
+
+  /* Bottom actions */
+  .actions {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .action-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    color: var(--text-dim);
+    font-family: 'Tajawal', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+  }
+
+  .action-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+
+  .action-btn.danger:hover { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #fca5a5; }
+
+  /* Complete overlay */
+  .complete-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    backdrop-filter: blur(8px);
+  }
+
+  .complete-overlay.show {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .complete-icon {
+    font-size: 72px;
+    animation: floatUp 1s ease forwards;
+  }
+
+  .complete-title {
+    font-family: 'Amiri', serif;
+    font-size: 36px;
+    color: var(--gold-light);
+    text-shadow: 0 0 40px rgba(240,208,122,0.6);
+  }
+
+  .complete-sub {
+    font-size: 14px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+  }
+
+  .complete-close {
+    margin-top: 16px;
+    padding: 14px 40px;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold);
+    border-radius: 100px;
+    color: var(--gold-light);
+    font-family: 'Tajawal', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .complete-close:hover { background: var(--gold); color: #000; }
+
+  @keyframes floatUp {
+    0% { transform: translateY(20px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  /* Particles */
+  .particle {
+    position: fixed;
+    pointer-events: none;
+    font-size: 18px;
+    z-index: 99;
+    animation: float-away 1.2s ease-out forwards;
+  }
+
+  @keyframes float-away {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-120px) scale(0.3); opacity: 0; }
+  }
+
+  /* Info chips */
+  .info-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .chip {
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 100px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+  }
+  /* Install banner */
+  .install-banner {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(120px);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 200;
+    width: min(360px, 92vw);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(201,168,76,0.1);
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .install-banner.show {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .install-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #1e1a0a, #3a2a10);
+    border: 1px solid var(--gold-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .install-text { flex: 1; }
+  .install-text strong { display: block; font-size: 13px; color: var(--text); font-weight: 500; }
+  .install-text span { font-size: 11px; color: var(--text-dim); }
+
+  .install-actions { display: flex; gap: 8px; align-items: center; }
+
+  .install-yes {
+    padding: 8px 14px;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold);
+    border-radius: 100px;
+    color: var(--gold-light);
+    font-family: 'Tajawal', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .install-yes:hover { background: var(--gold); color: #000; }
+
+  .install-no {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .install-no:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+
+  /* Wake lock indicator */
+  .wakelock-badge {
+    position: fixed;
+    top: 14px; right: 14px;
+    display: flex; align-items: center; gap: 5px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(45,212,191,0.2);
+    border-radius: 100px;
+    padding: 4px 10px;
+    font-size: 10px;
+    color: var(--teal);
+    letter-spacing: 0.5px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 50;
+    backdrop-filter: blur(6px);
+  }
+
+  .wakelock-badge.active { opacity: 1; }
+
+  .wl-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--teal);
+    animation: blink 2s ease-in-out infinite;
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-pattern"></div>
+
+<!-- Wake lock badge -->
+<div class="wakelock-badge" id="wakelockBadge">
+  <div class="wl-dot"></div>
+  <span>Layar aktif</span>
+</div>
+
+<!-- Install banner -->
+<div class="install-banner" id="installBanner">
+  <div class="install-icon">☽</div>
+  <div class="install-text">
+    <strong>Tambah ke Layar Utama</strong>
+    <span>Buka seperti aplikasi, tanpa browser</span>
+  </div>
+  <div class="install-actions">
+    <button class="install-yes" onclick="doInstall()">Pasang</button>
+    <button class="install-no" onclick="dismissInstall()">✕</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="header">
+    <div class="arabic-title">اَللّهُ اَكْبَرُ</div>
+    <div class="subtitle">Penghitung Zikir · Target 1.000</div>
+  </div>
+
+  <div class="counter-card">
+    <!-- SVG Ring -->
+    <div class="ring-wrapper">
+      <svg class="progress-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#c9a84c"/>
+            <stop offset="100%" stop-color="#f0d07a"/>
+          </linearGradient>
+        </defs>
+        <circle class="ring-bg" cx="100" cy="100" r="90"/>
+        <circle class="ring-fill" id="ringFill" cx="100" cy="100" r="90"/>
+      </svg>
+      <div class="ring-center">
+        <div class="count-number" id="countDisplay">0</div>
+        <div class="count-label">zikir</div>
+      </div>
+    </div>
+
+    <div class="target-info">
+      Tersisa <span class="val" id="remaining">1.000</span> &nbsp;·&nbsp; Target <span class="val">1.000</span>
+    </div>
+
+    <!-- Manual tap button -->
+    <button class="tap-btn" id="tapBtn" onclick="handleCount()" title="Ketuk untuk zikir">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+      </svg>
+    </button>
+
+    <!-- Voice button -->
+    <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">
+      <div class="voice-dot"></div>
+      <span id="voiceBtnText">Aktifkan Suara</span>
+    </button>
+
+    <!-- Status bar -->
+    <div class="status-bar" id="statusBar">
+      <span>🎙️</span>
+      <span id="statusText">Ketuk tombol atau ucapkan "amin" / "amiin" untuk berzikir</span>
+    </div>
+  </div>
+
+  <!-- Info -->
+  <div class="info-chips">
+    <div class="chip">🎤 Ucapkan "amin" / "amiin"</div>
+    <div class="chip">👆 Atau ketuk tombol</div>
+    <div class="chip">💾 Data tersimpan otomatis</div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="action-btn" onclick="setTarget()">🎯 Ubah Target</button>
+    <button class="action-btn danger" onclick="confirmReset()">🔄 Reset</button>
+  </div>
+</div>
+
+<!-- Complete overlay -->
+<div class="complete-overlay" id="completeOverlay">
+  <div class="complete-icon">✨</div>
+  <div class="complete-title">Alhamdulillah</div>
+  <div class="complete-sub">Zikir 1.000× telah selesai</div>
+  <button class="complete-close" onclick="closeComplete()">Mulai Lagi</button>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────
+  const STORAGE_KEY = 'zikir_v3';
+  let state = { count: 0, target: 1000, completed: false };
+  let recognition = null;
+  let isListening = false;
+  let lastSpoken = 0; // debounce
+
+  // ── Persist ────────────────────────────────────────
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        state = { count: parsed.count || 0, target: parsed.target || 1000, completed: parsed.completed || false };
+      }
+    } catch(e) {}
+  }
+
+  // ── UI Update ──────────────────────────────────────
+  function updateUI() {
+    const { count, target } = state;
+    const display = document.getElementById('countDisplay');
+    const remaining = document.getElementById('remaining');
+    const ring = document.getElementById('ringFill');
+
+    // Format number with dots
+    display.textContent = count.toLocaleString('id-ID');
+    const rem = Math.max(0, target - count);
+    remaining.textContent = rem.toLocaleString('id-ID');
+
+    // Ring progress
+    const circumference = 2 * Math.PI * 90; // ≈565.48
+    const progress = Math.min(count / target, 1);
+    ring.style.strokeDashoffset = circumference * (1 - progress);
+  }
+
+  // ── Count ──────────────────────────────────────────
+  function handleCount() {
+    if (state.completed) return;
+    if (state.count >= state.target) return;
+
+    state.count++;
+    save();
+    updateUI();
+
+    // Bump animation
+    const el = document.getElementById('countDisplay');
+    el.classList.remove('bump');
+    void el.offsetWidth;
+    el.classList.add('bump');
+
+    // Ripple on tap button
+    const btn = document.getElementById('tapBtn');
+    btn.classList.remove('ripple');
+    void btn.offsetWidth;
+    btn.classList.add('ripple');
+    setTimeout(() => btn.classList.remove('ripple'), 500);
+
+    // Particle
+    spawnParticle();
+
+    // Milestone haptic / visual
+    if (state.count === state.target) {
+      state.completed = true;
+      save();
+      setTimeout(showComplete, 600);
+    }
+  }
+
+  function spawnParticle() {
+    const symbols = ['✦', '☽', '✧', '◆', '⬡'];
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+    p.style.left = (30 + Math.random() * 40) + 'vw';
+    p.style.top = '60vh';
+    p.style.color = '#c9a84c';
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1200);
+  }
+
+  // ── Complete ───────────────────────────────────────
+  function showComplete() {
+    document.getElementById('completeOverlay').classList.add('show');
+    // Burst particles
+    for (let i = 0; i < 12; i++) {
+      setTimeout(() => {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.textContent = ['✦','✧','☽','◆','⬡','★'][Math.floor(Math.random()*6)];
+        p.style.left = (10 + Math.random() * 80) + 'vw';
+        p.style.top = (20 + Math.random() * 60) + 'vh';
+        p.style.color = ['#c9a84c','#f0d07a','#2dd4bf'][Math.floor(Math.random()*3)];
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 1200);
+      }, i * 80);
+    }
+  }
+
+  function closeComplete() {
+    state = { count: 0, target: state.target, completed: false };
+    save();
+    updateUI();
+    document.getElementById('completeOverlay').classList.remove('show');
+    setStatus('Zikir direset. Siap mulai lagi!', false);
+  }
+
+  // ── Reset / Target ─────────────────────────────────
+  function confirmReset() {
+    if (confirm('Reset hitungan ke 0?')) {
+      state = { count: 0, target: state.target, completed: false };
+      save();
+      updateUI();
+      setStatus('Hitungan direset.', false);
+    }
+  }
+
+  function setTarget() {
+    const val = prompt('Masukkan target zikir:', state.target);
+    if (val === null) return;
+    const num = parseInt(val);
+    if (!isNaN(num) && num > 0) {
+      state.target = num;
+      if (state.count >= state.target) state.completed = true;
+      else state.completed = false;
+      save();
+      updateUI();
+      setStatus(`Target diubah ke ${num.toLocaleString('id-ID')}`, false);
+    }
+  }
+
+  // ── Status Bar ─────────────────────────────────────
+  function setStatus(msg, detected = false, error = false) {
+    const bar = document.getElementById('statusBar');
+    const txt = document.getElementById('statusText');
+    bar.className = 'status-bar' + (detected ? ' detected' : error ? ' error' : '');
+    txt.textContent = msg;
+  }
+
+  // ── Voice Recognition ──────────────────────────────
+  function toggleVoice() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      setStatus('Browser tidak mendukung pengenalan suara. Gunakan Chrome.', false, true);
+      return;
+    }
+
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  }
+
+  function startListening() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.lang = 'id-ID';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 5;
+
+    recognition.onstart = () => {
+      isListening = true;
+      document.getElementById('voiceBtn').classList.add('listening');
+      document.getElementById('voiceBtnText').textContent = 'Mendengarkan...';
+      setStatus('🎙️ Aktif — ucapkan "amin", "amiin", atau "alim"');
+    };
+
+    recognition.onresult = (e) => {
+      const now = Date.now();
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const result = e.results[i];
+        // Check all alternatives
+        for (let a = 0; a < result.length; a++) {
+          const transcript = result[a].transcript.trim().toLowerCase();
+          // Keywords: semua variasi "alim" + "amin" + kata mirip dari speech recognition
+          const keywords = [
+            // variasi alim
+            'alim', 'aliim', 'aleem', 'aalim', 'laim', 'aliem',
+            // variasi amin / amiin (target utama user)
+            'amin', 'amiin', 'aamin', 'aamiin', 'ameen', 'aameen', 'amen',
+            // variasi yang sering muncul dari STT Indonesia
+            'min', 'miin', 'amiiin', 'aamiin'
+          ];
+          const matched = keywords.some(k => transcript.includes(k));
+
+          if (matched && (now - lastSpoken) > 800) {
+            lastSpoken = now;
+            setStatus(`✅ Terdeteksi: "${result[a].transcript.trim()}"`, true);
+            handleCount();
+            break;
+          } else if (transcript.length > 1) {
+            setStatus(`🎙️ Terdengar: "${result[a].transcript.trim()}"`, false);
+          }
+        }
+      }
+    };
+
+    recognition.onerror = (e) => {
+      if (e.error === 'not-allowed') {
+        setStatus('Izin mikrofon ditolak. Aktifkan di pengaturan browser.', false, true);
+        stopListening();
+      } else if (e.error === 'no-speech') {
+        setStatus('🎙️ Tidak terdengar suara... Ucapkan "amin"', false);
+      }
+    };
+
+    recognition.onend = () => {
+      if (isListening) {
+        // Restart automatically
+        try { recognition.start(); } catch(e) {}
+      }
+    };
+
+    try {
+      recognition.start();
+    } catch(e) {
+      setStatus('Gagal memulai mikrofon.', false, true);
+    }
+  }
+
+  function stopListening() {
+    isListening = false;
+    if (recognition) recognition.stop();
+    document.getElementById('voiceBtn').classList.remove('listening');
+    document.getElementById('voiceBtnText').textContent = 'Aktifkan Suara';
+    setStatus('Pengenalan suara dimatikan.', false);
+  }
+
+  // ── Keyboard support ───────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.code === 'Enter') {
+      e.preventDefault();
+      handleCount();
+    }
+  });
+
+  // ── Init ───────────────────────────────────────────
+  load();
+  updateUI();
+
+  // Greet
+  if (state.count > 0) {
+    setStatus(`Selamat datang kembali! Hitungan: ${state.count.toLocaleString('id-ID')}`);
+  }
+
+  if (state.completed) {
+    setTimeout(showComplete, 800);
+  }
+</script>
+</body>
+</html>
+<script>
+  // ── Wake Lock ──────────────────────────────────────
+  let wakeLock = null;
+
+  async function requestWakeLock() {
+    if (!('wakeLock' in navigator)) return;
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      document.getElementById('wakelockBadge').classList.add('active');
+      wakeLock.addEventListener('release', () => {
+        document.getElementById('wakelockBadge').classList.remove('active');
+      });
+    } catch(e) {}
+  }
+
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+      await requestWakeLock();
+    }
+  });
+
+  requestWakeLock();
+
+  // ── PWA Install ────────────────────────────────────
+  let deferredPrompt = null;
+  const banner = document.getElementById('installBanner');
+  const INSTALL_KEY = 'zikir_install_dismissed';
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!localStorage.getItem(INSTALL_KEY)) {
+      setTimeout(() => banner.classList.add('show'), 1800);
+    }
+  });
+
+  function doInstall() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => {
+      deferredPrompt = null;
+      banner.classList.remove('show');
+    });
+  }
+
+  function dismissInstall() {
+    banner.classList.remove('show');
+    localStorage.setItem(INSTALL_KEY, '1');
+  }
+
+  // iOS Safari: tampilkan petunjuk manual
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone;
+  const IOS_KEY = 'zikir_ios_tip';
+  if (isIOS && !isStandalone && !localStorage.getItem(IOS_KEY)) {
+    setTimeout(() => {
+      banner.querySelector('.install-text strong').textContent = 'Tambah ke Layar Utama';
+      banner.querySelector('.install-text span').textContent = "Ketuk ikon ⬆ Bagikan → 'Add to Home Screen'";
+      banner.querySelector('.install-yes').style.display = 'none';
+      banner.classList.add('show');
+      document.getElementById('installBanner').querySelector('.install-no')
+        .addEventListener('click', () => localStorage.setItem(IOS_KEY, '1'), { once: true });
+    }, 1800);
+  }
+</script>
